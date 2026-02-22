@@ -34,17 +34,18 @@ const storeInLocalPublic = async (filename: string, outputBuffer: Buffer) => {
 
 const storeInVercelBlob = async (filename: string, outputBuffer: Buffer, mime: string) => {
     const token = String(process.env.BLOB_READ_WRITE_TOKEN || '').trim();
-    if (!token) {
-        throw new Error('Upload driver blob aktif, tetapi BLOB_READ_WRITE_TOKEN belum diset.');
-    }
 
     const { put } = await import('@vercel/blob');
-    const blob = await put(`uploads/${filename}`, outputBuffer, {
-        access: 'public',
+    const pathname = `uploads/${filename}`;
+    const options = {
+        access: 'public' as const,
         contentType: mime,
         addRandomSuffix: false,
-        token,
-    });
+    };
+
+    const blob = token
+        ? await put(pathname, outputBuffer, { ...options, token })
+        : await put(pathname, outputBuffer, options);
 
     return blob.url;
 };
