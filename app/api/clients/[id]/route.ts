@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma';
 import { NextResponse, NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { revalidatePath } from 'next/cache';
 
 async function requireAdmin() {
     const session = (await getServerSession(authOptions as any)) as any;
@@ -32,6 +33,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
             where: { id: params.id },
             data: { name, logoUrl, isShow },
         });
+        revalidatePath('/');
         return NextResponse.json(client);
     } catch (error) {
         console.error('Error updating client:', error);
@@ -49,6 +51,7 @@ export async function DELETE(_request: NextRequest, { params }: { params: { id: 
         await prisma.client.delete({
             where: { id: params.id },
         });
+        revalidatePath('/');
         return NextResponse.json({ success: true });
     } catch (error) {
         console.error('Error deleting client:', error);

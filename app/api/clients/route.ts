@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma';
 import { NextResponse, NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { revalidatePath } from 'next/cache';
 
 async function requireAdmin() {
     const session = (await getServerSession(authOptions as any)) as any;
@@ -48,6 +49,7 @@ export async function POST(request: NextRequest) {
         const client = await prisma.client.create({
             data: { name, logoUrl, isShow },
         });
+        revalidatePath('/');
         return NextResponse.json(client, { status: 201 });
     } catch (error) {
         console.error('Error creating client:', error);

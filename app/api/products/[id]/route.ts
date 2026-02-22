@@ -4,6 +4,7 @@ import { NextResponse, NextRequest } from 'next/server';
 import { productUpdateSchema } from '@/lib/validation';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { revalidatePath } from 'next/cache';
 
 const normalizeSections = (value: unknown) => {
     if (!value) return [];
@@ -169,6 +170,8 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
             where: { id: params.id },
             data,
         });
+        revalidatePath('/');
+        revalidatePath('/products');
         return NextResponse.json(product);
     } catch (error) {
         console.error('Error updating product:', error);
@@ -186,6 +189,8 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
         await prisma.product.delete({
             where: { id: params.id },
         });
+        revalidatePath('/');
+        revalidatePath('/products');
         return NextResponse.json({ success: true });
     } catch (error) {
         console.error('Error deleting product:', error);

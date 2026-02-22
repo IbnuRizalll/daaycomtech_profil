@@ -4,6 +4,7 @@ import { NextResponse, NextRequest } from "next/server"
 import { productSchema } from "@/lib/validation"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
+import { revalidatePath } from "next/cache"
 
 const normalizeSections = (value: unknown) => {
   if (!value) return []
@@ -232,6 +233,8 @@ export async function POST(request: NextRequest) {
     const product = await prisma.product.create({
       data,
     })
+    revalidatePath("/")
+    revalidatePath("/products")
     return NextResponse.json(product, { status: 201 })
   } catch (error) {
     console.error("Error creating product:", error)
