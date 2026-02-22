@@ -6,7 +6,7 @@ Website company profile + katalog produk dengan panel admin.
 - Halaman publik: Beranda, Produk, Detail Produk, Tentang Kami, Kontak, Detail Berita/Artikel, Detail Achievement.
 - Admin: manajemen produk, klien, pesan, berita/artikel, achievement, dan admin (khusus superadmin).
 - Aktivasi admin berbasis invite token + audit logs untuk aksi sensitif admin.
-- Multi-image upload untuk produk + upload image untuk berita/artikel dan achievement (tersimpan di `/public/uploads`).
+- Multi-image upload untuk produk + upload image untuk berita/artikel dan achievement (lokal: `/public/uploads`, Vercel: Blob Storage).
 - Form kontak menyimpan pesan + nomor HP.
 - Admin membalas via Gmail/WhatsApp (tanpa SMTP).
 - Highlight berita & achievement di beranda + tampilan dinamis dari database.
@@ -32,7 +32,7 @@ Next.js App Router (Server Components) ----> Prisma ----> MySQL
 Next.js API Routes (/app/api/*) -----------> Prisma ----> MySQL
   |
   v
-Upload API -> /public/uploads (WebP compressed)
+Upload API -> local `/public/uploads` atau Vercel Blob (WebP compressed)
 ```
 
 Struktur aplikasi:
@@ -46,7 +46,7 @@ Struktur aplikasi:
 - Public pages (beranda, produk, artikel, achievement) membaca DB langsung via Prisma di server component.
 - Admin pages memakai fetch ke API routes (POST/PATCH/DELETE) agar aman di client.
 - Session admin dikelola NextAuth (credentials) dan diverifikasi di API.
-- Upload file tersimpan di `public/uploads` dan dioptimasi ke WebP (max 1600px).
+- Upload file dioptimasi ke WebP (max 1600px), lalu disimpan ke `public/uploads` (lokal) atau Vercel Blob (production).
 
 ## Alur Fitur Penting
 - Produk: admin CRUD -> API -> Prisma -> DB -> tampil di public. Search & filter lewat `/api/products`.
@@ -92,6 +92,12 @@ Struktur aplikasi:
 
    # Masa berlaku invite token admin (jam)
    ADMIN_INVITE_TTL_HOURS="24"
+
+   # Upload storage
+   # local (default non-Vercel) | blob (default di Vercel)
+   UPLOAD_DRIVER="local"
+   # Wajib jika UPLOAD_DRIVER=blob
+   BLOB_READ_WRITE_TOKEN=""
    ```
 
 3. Sinkronkan database:
@@ -244,7 +250,9 @@ npm run ubuntu:db:reset
 - `bash scripts/ubuntu-run.sh npx prisma studio` – Prisma Studio dengan `.env.ubuntu` (Ubuntu Docker `127.0.0.1:3307`)
 
 ## Catatan Penting
-- Upload gambar produk/berita/achievement tersimpan di `public/uploads`.
+- Upload gambar produk/berita/achievement:
+  - lokal/development: tersimpan di `public/uploads`
+  - production Vercel: gunakan Blob Storage (`UPLOAD_DRIVER=blob` + `BLOB_READ_WRITE_TOKEN`)
 - Fallback image admin menggunakan `public/images/team/team.png`.
 - Admin page tidak memakai header/footer publik.
 - Setelah perubahan schema Prisma, jalankan `npm run db:push`.
@@ -257,3 +265,6 @@ npm run ubuntu:db:reset
 ## Deployment (Singkat)
 - Set env variables di server/Vercel sesuai `.env`.
 - Jalankan `npm run build` lalu `npm start`.
+- Untuk upload gambar di Vercel:
+  - set `UPLOAD_DRIVER=blob`
+  - set `BLOB_READ_WRITE_TOKEN` dari Vercel Blob

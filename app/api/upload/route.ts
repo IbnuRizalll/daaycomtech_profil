@@ -5,6 +5,8 @@ import { processImageUpload } from '@/lib/security';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
+type UploadDriver = 'local' | 'blob';
+
 async function requireAdmin() {
     const session = (await getServerSession(authOptions as any)) as any;
     const role = (session?.user as any)?.role;
@@ -13,6 +15,39 @@ async function requireAdmin() {
     }
     return session;
 }
+
+const resolveUploadDriver = (): UploadDriver => {
+    const configured = String(process.env.UPLOAD_DRIVER || '').trim().toLowerCase();
+    if (configured === 'local' || configured === 'blob') {
+        return configured;
+    }
+    return process.env.VERCEL ? 'blob' : 'local';
+};
+
+const storeInLocalPublic = async (filename: string, outputBuffer: Buffer) => {
+    const uploadDir = join(process.cwd(), 'public', 'uploads');
+    await mkdir(uploadDir, { recursive: true });
+    const filepath = join(uploadDir, filename);
+    await writeFile(filepath, outputBuffer);
+    return `/uploads/${filename}`;
+};
+
+const storeInVercelBlob = async (filename: string, outputBuffer: Buffer, mime: string) => {
+    const token = String(process.env.BLOB_READ_WRITE_TOKEN || '').trim();
+    if (!token) {
+        throw new Error('Upload driver blob aktif, tetapi BLOB_READ_WRITE_TOKEN belum diset.');
+    }
+
+    const { put } = await import('@vercel/blob');
+    const blob = await put(`uploads/${filename}`, outputBuffer, {
+        access: 'public',
+        contentType: mime,
+        addRandomSuffix: false,
+        token,
+    });
+
+    return blob.url;
+};
 
 export async function POST(request: NextRequest) {
     const session = await requireAdmin();
@@ -28,25 +63,25 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'No file provided' }, { status: 400 });
         }
 
-        // Create uploads directory if it doesn't exist
-        const uploadDir = join(process.cwd(), 'public', 'uploads');
-        await mkdir(uploadDir, { recursive: true });
+        const { buffer: outputBuffer, filename, optimized, mime } = await processImageUpload(file);
+        const uploadDriver = resolveUploadDriver();
+        const fileUrl =
+            uploadDriver === 'blob'
+                ? await storeInVercelBlob(filename, outputBuffer, mime)
+                : await storeInLocalPublic(filename, outputBuffer);
 
-        const { buffer: outputBuffer, filename, optimized } = await processImageUpload(file);
-
-        // Write file to public/uploads
-        const filepath = join(uploadDir, filename);
-        await writeFile(filepath, outputBuffer);
-
-        // Return the public URL
-        const fileUrl = `/uploads/${filename}`;
         return NextResponse.json({
             url: fileUrl,
             filename,
             optimized,
+            driver: uploadDriver,
         });
     } catch (error) {
         console.error('Error uploading file:', error);
-        return NextResponse.json({ error: 'Failed to upload file' }, { status: 500 });
+        const message =
+            error instanceof Error && error.message
+                ? error.message
+                : 'Failed to upload file';
+        return NextResponse.json({ error: message }, { status: 500 });
     }
 }

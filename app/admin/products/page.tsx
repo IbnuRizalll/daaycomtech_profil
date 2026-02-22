@@ -320,7 +320,9 @@ export default function ProductsPage() {
                     const data = await response.json();
                     setImageList((prev) => [...prev, data.url]);
                 } else {
-                    alert(`Failed to upload ${file.name}`);
+                    const payload = await response.json().catch(() => null);
+                    const reason = payload?.error ? `: ${payload.error}` : '';
+                    alert(`Failed to upload ${file.name}${reason}`);
                 }
             }
         } catch (error) {
