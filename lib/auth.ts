@@ -1,4 +1,5 @@
 import CredentialsProvider from 'next-auth/providers/credentials';
+import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
 import { loginSchema } from '@/lib/validation';
 import { writeAuditLog } from '@/lib/audit-log';
@@ -49,24 +50,13 @@ const getClientIp = (req: any) => {
 // Dummy hash to equalize timing when user not found (prevents account enumeration by timing).
 const DUMMY_HASH = '$2b$10$N9qo8uLOickgx2ZMRZo5i.ej7ZL6pmjQe7YQDdyCjTiMQuuLHcE3C';
 
-let bcryptModulePromise: Promise<any> | null = null;
-
-const getBcryptModule = async () => {
-    if (!bcryptModulePromise) {
-        bcryptModulePromise = import('bcrypt').catch((error) => {
-            console.error('Failed to load bcrypt module:', error);
-            return null;
-        });
-    }
-    return await bcryptModulePromise;
-};
-
 const comparePassword = async (plain: string, hashed: string) => {
-    const bcryptModule = await getBcryptModule();
-    if (!bcryptModule?.compare) {
+    try {
+        return await bcrypt.compare(plain, hashed);
+    } catch (error) {
+        console.error('Password compare failed:', error);
         return false;
     }
-    return await bcryptModule.compare(plain, hashed);
 };
 
 const validateAdminEmailSafe = async (emailInput: string) => {
