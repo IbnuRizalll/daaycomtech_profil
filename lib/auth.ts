@@ -1,8 +1,6 @@
 import CredentialsProvider from 'next-auth/providers/credentials';
-import bcrypt from 'bcrypt';
 import { prisma } from '@/lib/prisma';
 import { loginSchema } from '@/lib/validation';
-import { validateAdminEmail } from '@/lib/email-deliverability';
 import { writeAuditLog } from '@/lib/audit-log';
 
 const LOGIN_WINDOW_MS = 60_000;
@@ -51,6 +49,43 @@ const getClientIp = (req: any) => {
 // Dummy hash to equalize timing when user not found (prevents account enumeration by timing).
 const DUMMY_HASH = '$2b$10$N9qo8uLOickgx2ZMRZo5i.ej7ZL6pmjQe7YQDdyCjTiMQuuLHcE3C';
 
+let bcryptModulePromise: Promise<any> | null = null;
+
+const getBcryptModule = async () => {
+    if (!bcryptModulePromise) {
+        bcryptModulePromise = import('bcrypt').catch((error) => {
+            console.error('Failed to load bcrypt module:', error);
+            return null;
+        });
+    }
+    return await bcryptModulePromise;
+};
+
+const comparePassword = async (plain: string, hashed: string) => {
+    const bcryptModule = await getBcryptModule();
+    if (!bcryptModule?.compare) {
+        return false;
+    }
+    return await bcryptModule.compare(plain, hashed);
+};
+
+const validateAdminEmailSafe = async (emailInput: string) => {
+    try {
+        const { validateAdminEmail } = await import('@/lib/email-deliverability');
+        return await validateAdminEmail(emailInput);
+    } catch (error) {
+        console.error('Failed to load email deliverability validator, using syntax fallback:', error);
+        const normalizedEmail = String(emailInput || '').trim().toLowerCase();
+        const ok = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail);
+        return {
+            ok,
+            normalizedEmail,
+            provider: 'unknown',
+            reason: ok ? undefined : 'Format email tidak valid.',
+        };
+    }
+};
+
 export const authOptions: any = {
     providers: [
         CredentialsProvider({
@@ -76,7 +111,7 @@ export const authOptions: any = {
                     }
 
                     const data = parsed.data;
-                    const emailValidation = await validateAdminEmail(data.email);
+                    const emailValidation = await validateAdminEmailSafe(data.email);
                     if (!emailValidation.ok) {
                         return null;
                     }
@@ -99,7 +134,7 @@ export const authOptions: any = {
                         }
                     });
 
-                    const isValid = await bcrypt.compare(data.password, user?.password || DUMMY_HASH);
+                    const isValid = await comparePassword(data.password, user?.password || DUMMY_HASH);
                     if (!user || !isValid) {
                         return null;
                     }
