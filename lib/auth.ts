@@ -60,73 +60,87 @@ export const authOptions: any = {
                 password: { label: "Password", type: "password" }
             },
             async authorize(credentials: any, req: any) {
-                const emailInput = String(credentials?.email || '').trim();
-                const password = String(credentials?.password || '');
-                const ip = getClientIp(req);
-                const ipKey = `ip:${ip}`;
+                try {
+                    const emailInput = String(credentials?.email || '').trim();
+                    const password = String(credentials?.password || '');
+                    const ip = getClientIp(req);
+                    const ipKey = `ip:${ip}`;
 
-                if (isRateLimited(ipKey)) {
-                    return null;
-                }
-
-                const parsed = loginSchema.safeParse({ email: emailInput, password });
-                if (!parsed.success) {
-                    return null;
-                }
-
-                const data = parsed.data;
-                const emailValidation = await validateAdminEmail(data.email);
-                if (!emailValidation.ok) {
-                    return null;
-                }
-                const normalizedEmail = emailValidation.normalizedEmail;
-
-                const pairKey = `pair:${ip}:${normalizedEmail.toLowerCase()}`;
-                if (isRateLimited(pairKey)) {
-                    return null;
-                }
-                const user = await prisma.admin.findFirst({
-                    where: {
-                        email: normalizedEmail,
-                    },
-                    select: {
-                        id: true,
-                        email: true,
-                        username: true,
-                        password: true,
-                        role: true,
+                    if (isRateLimited(ipKey)) {
+                        return null;
                     }
-                });
 
-                const isValid = await bcrypt.compare(data.password, user?.password || DUMMY_HASH);
-                if (!user || !isValid) {
+                    const parsed = loginSchema.safeParse({ email: emailInput, password });
+                    if (!parsed.success) {
+                        return null;
+                    }
+
+                    const data = parsed.data;
+                    const emailValidation = await validateAdminEmail(data.email);
+                    if (!emailValidation.ok) {
+                        return null;
+                    }
+                    const normalizedEmail = emailValidation.normalizedEmail;
+
+                    const pairKey = `pair:${ip}:${normalizedEmail.toLowerCase()}`;
+                    if (isRateLimited(pairKey)) {
+                        return null;
+                    }
+                    const user = await prisma.admin.findFirst({
+                        where: {
+                            email: normalizedEmail,
+                        },
+                        select: {
+                            id: true,
+                            email: true,
+                            username: true,
+                            password: true,
+                            role: true,
+                        }
+                    });
+
+                    const isValid = await bcrypt.compare(data.password, user?.password || DUMMY_HASH);
+                    if (!user || !isValid) {
+                        return null;
+                    }
+
+                    clearRateLimit(ipKey);
+                    clearRateLimit(pairKey);
+
+                    await writeAuditLog({
+                        action: 'ADMIN_LOGIN_SUCCESS',
+                        entity: 'Admin',
+                        entityId: user.id,
+                        actorId: user.id,
+                        actorEmail: user.email,
+                        actorRole: user.role,
+                        metadata: { ip },
+                    });
+
+                    return {
+                        id: user.id,
+                        email: user.email,
+                        name: user.username,
+                        role: user.role,
+                    };
+                } catch (error) {
+                    console.error('Authorize failed:', error);
                     return null;
                 }
-
-                clearRateLimit(ipKey);
-                clearRateLimit(pairKey);
-
-                await writeAuditLog({
-                    action: 'ADMIN_LOGIN_SUCCESS',
-                    entity: 'Admin',
-                    entityId: user.id,
-                    actorId: user.id,
-                    actorEmail: user.email,
-                    actorRole: user.role,
-                    metadata: { ip },
-                });
-
-                return {
-                    id: user.id,
-                    email: user.email,
-                    name: user.username,
-                    role: user.role,
-                };
             }
         })
     ],
     pages: {
         signIn: '/auth/login'
+    },
+    debug: process.env.NEXTAUTH_DEBUG === 'true',
+    logger: {
+        error(code: string, metadata: unknown) {
+            console.error('[NextAuth][error]', code, metadata);
+        },
+        warn(code: string) {
+            console.warn('[NextAuth][warn]', code);
+        },
     },
     secret: process.env.NEXTAUTH_SECRET,
     useSecureCookies: process.env.NODE_ENV === 'production',
