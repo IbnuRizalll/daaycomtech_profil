@@ -1,0 +1,15 @@
+{
+  "recommendations": [
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "usernamehw.errorlens",
+    "yoavbls.pretty-ts-errors",
+    "sonarsource.sonarlint-vscode",
+    "prisma.prisma",
+    "bradlc.vscode-tailwindcss",
+    "csstools.postcss",
+    "christian-kohler.path-intellisense",
+    "github.copilot-chat",
+    "pkief.material-icon-theme"
+  ]
+}

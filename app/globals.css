@@ -1,0 +1,234 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 10%;
+    --primary: 0 72% 52%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 98%;
+    --secondary-foreground: 0 0% 12%;
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 45%;
+    --accent: 214 90% 57%;
+    --accent-foreground: 0 0% 12%;
+    --destructive: 0 80% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 90%;
+    --input: 0 0% 90%;
+    --ring: 0 72% 52%;
+    --radius: 0.75rem;
+    --font-display: "Palatino Linotype", "Book Antiqua", Palatino, serif;
+    --font-body: "Segoe UI", "Noto Sans", "Helvetica Neue", Arial, sans-serif;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-body);
+    background-image:
+      radial-gradient(circle at top left, rgba(239, 68, 68, 0.08), transparent 45%),
+      radial-gradient(circle at bottom right, rgba(59, 130, 246, 0.08), transparent 40%);
+    background-attachment: fixed;
+  }
+}
+
+@layer base {
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+  }
+
+  ::selection {
+    background: rgba(239, 68, 68, 0.25);
+  }
+}
+
+@layer components {
+  .site-container {
+    @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 2xl:max-w-[90rem] 2xl:px-12;
+  }
+}
+
+/* Custom animations */
+@keyframes marquee {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+
+  to {
+    transform: translate3d(-100%, 0, 0);
+  }
+}
+
+.marquee {
+  display: flex;
+  overflow: hidden;
+  gap: 2rem;
+}
+
+.marquee-track {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  flex-shrink: 0;
+  width: max-content;
+  padding: 0.5rem 0;
+  animation: marquee 40s linear infinite;
+  will-change: transform;
+}
+
+@keyframes highlightCycle {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0);
+  }
+  10% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+  35% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    opacity: 0;
+    transform: translate3d(0, -8px, 0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(0, -8px, 0);
+  }
+}
+
+.highlight-cycle {
+  animation: highlightCycle 16s ease-in-out infinite;
+  will-change: opacity, transform;
+  backface-visibility: hidden;
+}
+
+@keyframes productAppear {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 14px, 0) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+.product-appear {
+  animation: productAppear 420ms ease-out both;
+  will-change: opacity, transform;
+}
+
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes toastOut {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(0, -8px, 0) scale(0.98);
+  }
+}
+
+.toast-enter {
+  animation: toastIn 180ms ease-out forwards;
+}
+
+.toast-exit {
+  animation: toastOut 160ms ease-in forwards;
+}
+
+@keyframes floatSlow {
+  0% {
+    transform: translateY(0) translateX(0);
+  }
+  50% {
+    transform: translateY(-18px) translateX(8px);
+  }
+  100% {
+    transform: translateY(0) translateX(0);
+  }
+}
+
+.float-slow {
+  animation: floatSlow 12s ease-in-out infinite;
+}
+
+.float-slower {
+  animation: floatSlow 18s ease-in-out infinite;
+}
+
+.section-accent {
+  width: 72px;
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(239, 68, 68, 1), rgba(0, 0, 0, 0.7), rgba(59, 130, 246, 0.9));
+}
+
+.reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 700ms ease, transform 700ms ease;
+}
+
+.reveal.in-view {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  .marquee-track {
+    animation: none;
+    transform: none;
+  }
+  .product-appear {
+    animation: none;
+  }
+  .float-slow,
+  .float-slower,
+  .highlight-cycle {
+    animation: none;
+  }
+}
+
+/* Hide number input spinners */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+}
