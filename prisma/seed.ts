@@ -71,31 +71,26 @@ const clients = [
     name: 'Bank Mandiri',
     logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/ad/Bank_Mandiri_logo_2016.svg/320px-Bank_Mandiri_logo_2016.svg.png',
     isShow: true,
-    order: 1,
   },
   {
     name: 'Telkom Indonesia',
     logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3f/Telkom_Indonesia_2013.svg/320px-Telkom_Indonesia_2013.svg.png',
     isShow: true,
-    order: 2,
   },
   {
     name: 'Pertamina',
     logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d6/Pertamina_Logo.svg/320px-Pertamina_Logo.svg.png',
     isShow: true,
-    order: 3,
   },
   {
     name: 'Garuda Indonesia',
     logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b8/Garuda_Indonesia_Logo.svg/320px-Garuda_Indonesia_Logo.svg.png',
     isShow: true,
-    order: 4,
   },
   {
     name: 'BCA',
     logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5c/Bank_Central_Asia.svg/320px-Bank_Central_Asia.svg.png',
     isShow: true,
-    order: 5,
   },
 ]
 
