@@ -12,11 +12,6 @@
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
-    "ubuntu:db:up": "docker compose -f docker-compose.ubuntu.yml up -d --wait --wait-timeout 180",
-    "ubuntu:db:down": "docker compose -f docker-compose.ubuntu.yml down",
-    "ubuntu:db:reset": "docker compose -f docker-compose.ubuntu.yml down -v && docker compose -f docker-compose.ubuntu.yml up -d",
-    "ubuntu:db:push": "docker compose -f docker-compose.ubuntu.yml up -d --wait --wait-timeout 180 && bash scripts/ubuntu-run.sh npm run db:push",
-    "ubuntu:db:seed": "docker compose -f docker-compose.ubuntu.yml up -d --wait --wait-timeout 180 && bash scripts/ubuntu-run.sh npm run db:seed",
     "ubuntu:dev": "bash scripts/ubuntu-run.sh npm run dev"
   },
   "prisma": {

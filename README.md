@@ -17,7 +17,7 @@ Website company profile + katalog produk dengan panel admin.
 - TypeScript
 - Tailwind CSS
 - Prisma ORM
-- MySQL
+- Supabase PostgreSQL
 - NextAuth (Credentials)
 
 ## Arsitektur (Ringkas)
@@ -26,10 +26,10 @@ Diagram alur utama:
 Browser
   | (public pages)
   v
-Next.js App Router (Server Components) ----> Prisma ----> MySQL
+Next.js App Router (Server Components) ----> Prisma ----> Supabase PostgreSQL
   | (client pages/admin)
   v
-Next.js API Routes (/app/api/*) -----------> Prisma ----> MySQL
+Next.js API Routes (/app/api/*) -----------> Prisma ----> Supabase PostgreSQL
   |
   v
 Upload API -> local `/public/uploads` atau Vercel Blob (WebP compressed)
@@ -58,7 +58,7 @@ Struktur aplikasi:
 
 ### Prasyarat
 - Node.js 18+
-- MySQL
+- Project Supabase (PostgreSQL)
 
 ### Langkah
 1. Install dependencies:
@@ -68,8 +68,11 @@ Struktur aplikasi:
 
 2. Buat `.env` di root:
    ```env
-   # Database
-   DATABASE_URL="mysql://USER:PASSWORD@localhost:3306/db_dct"
+   # Database (Supabase PostgreSQL)
+   # Transaction pooler URL (runtime Prisma Client)
+   DATABASE_URL="postgresql://postgres.PROJECT_REF:YOUR_DB_PASSWORD@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1"
+   # Direct URL (Prisma db push/migrate/studio)
+   DIRECT_URL="postgresql://postgres:YOUR_DB_PASSWORD@db.PROJECT_REF.supabase.co:5432/postgres"
 
    # NextAuth
    NEXTAUTH_URL="http://localhost:3000"
@@ -118,108 +121,16 @@ Struktur aplikasi:
 
 Buka http://localhost:3000
 
-## Setup Dual Boot (Windows + Ubuntu Docker)
-- Windows tetap pakai XAMPP MySQL di port `3306` melalui `.env`.
-- Ubuntu pakai Docker MySQL di port `3307` melalui `.env.ubuntu`.
-- Konfigurasi ini tidak saling bentrok karena port DB berbeda.
-
-### Prasyarat Ubuntu Docker (sekali setup)
-1. Install Docker:
-   ```bash
-   sudo apt update
-   sudo apt install -y docker.io docker-compose-v2
-   ```
-2. Aktifkan service Docker:
-   ```bash
-   sudo systemctl enable --now docker
-   ```
-3. Tambahkan user ke group docker:
-   ```bash
-   sudo usermod -aG docker $USER
-   newgrp docker
-   ```
-4. Verifikasi:
-   ```bash
-   docker info
-   docker compose version
-   ```
-
-### Jalankan di Ubuntu (mode Docker)
-1. Install dependencies Linux:
-   ```bash
-   npm ci
-   ```
-2. Start MySQL Docker Ubuntu:
-   ```bash
-   npm run ubuntu:db:up
-   ```
-   Perintah ini otomatis menunggu container MySQL sampai status `healthy`.
-   phpMyAdmin juga ikut aktif di `http://localhost:8080`.
-3. Push schema ke MySQL Docker:
-   ```bash
-   npm run ubuntu:db:push
-   ```
-4. (Opsional) Seed data:
-   ```bash
-   npm run ubuntu:db:seed
-   ```
-5. Jalankan dev server dengan env Ubuntu:
-   ```bash
-   npm run ubuntu:dev
-   ```
-
-### Prisma Studio (Windows vs Ubuntu)
-- Windows (MySQL lokal/XAMPP, port `3306`, pakai `.env`):
+## Setup Multi-OS (Windows + Ubuntu)
+- Karena DB sudah hosted di Supabase, file `.env` dan `.env.ubuntu` bisa memakai URL database yang sama.
+- Untuk jalankan app di Ubuntu dengan env khusus gunakan:
   ```bash
-  npm run db:studio
+  npm run ubuntu:dev
   ```
-- Ubuntu Docker (MySQL container, port `3307`, pakai `.env.ubuntu`):
-  ```bash
-  npm run ubuntu:db:up
-  bash scripts/ubuntu-run.sh npx prisma studio
-  ```
-- Cek env aktif untuk mode Ubuntu:
+- Cek env aktif mode Ubuntu:
   ```bash
   bash scripts/ubuntu-run.sh sh -lc 'echo $DATABASE_URL'
   ```
-  Output yang benar: `mysql://app:app@127.0.0.1:3307/db_dct`
-- Catatan: `ubuntu-run.sh` bukan command global, jadi jalankan via path `bash scripts/ubuntu-run.sh ...`.
-
-### Stop/Reset DB Ubuntu
-```bash
-npm run ubuntu:db:down
-npm run ubuntu:db:reset
-```
-
-### Akses phpMyAdmin (Ubuntu Docker)
-- URL: `http://localhost:8080`
-- Login:
-  - Username: `app`
-  - Password: `app`
-- Alternatif login admin:
-  - Username: `root`
-  - Password: `root`
-- Server/Host (jika diminta): `mysql`
-
-### Troubleshooting Docker Ubuntu
-- `permission denied while trying to connect to the Docker daemon socket`:
-  jalankan ulang langkah "Tambahkan user ke group docker", lalu tutup dan buka lagi terminal/VS Code.
-- `container ... is unhealthy`:
-  ```bash
-  docker compose -f docker-compose.ubuntu.yml down -v
-  docker compose -f docker-compose.ubuntu.yml pull
-  npm run ubuntu:db:up
-  ```
-- Cek status dan log container:
-  ```bash
-  docker compose -f docker-compose.ubuntu.yml ps
-  docker logs --tail 200 daaycomtech-mysql-ubuntu
-  docker logs --tail 200 daaycomtech-phpmyadmin-ubuntu
-  ```
-
-### Catatan penting dual boot
-- Jangan share `node_modules` antara Windows dan Ubuntu.
-- Saat pindah OS, install ulang dependencies di OS tersebut (`npm ci`).
 
 ## Admin
 - URL login: `/auth/login`
@@ -240,14 +151,9 @@ npm run ubuntu:db:reset
 - `npm run lint:ci` – ESLint untuk CI (fail jika ada warning/error)
 - `npm run db:push` – push schema ke DB
 - `npm run db:seed` – seed data
-- `npm run db:studio` – Prisma Studio dengan `.env` (umumnya Windows/XAMPP `localhost:3306`)
-- `npm run ubuntu:db:up` – start MySQL + phpMyAdmin Docker Ubuntu dan tunggu healthy
-- `npm run ubuntu:db:down` – stop container Docker Ubuntu
-- `npm run ubuntu:db:reset` – reset volume DB Ubuntu (hapus data)
-- `npm run ubuntu:db:push` – push Prisma schema ke MySQL Docker Ubuntu
-- `npm run ubuntu:db:seed` – seed data ke MySQL Docker Ubuntu
+- `npm run db:studio` – Prisma Studio dengan `.env` (Supabase PostgreSQL)
 - `npm run ubuntu:dev` – jalankan Next.js dev dengan env Ubuntu (`.env.ubuntu`)
-- `bash scripts/ubuntu-run.sh npx prisma studio` – Prisma Studio dengan `.env.ubuntu` (Ubuntu Docker `127.0.0.1:3307`)
+- `bash scripts/ubuntu-run.sh npx prisma studio` – Prisma Studio dengan `.env.ubuntu`
 
 ## Catatan Penting
 - Upload gambar produk/berita/achievement:
