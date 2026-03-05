@@ -81,7 +81,7 @@ Struktur aplikasi:
    # App
    NEXT_PUBLIC_APP_URL="http://localhost:3000"
    NEXT_PUBLIC_WHATSAPP_NUMBER="628123456789"
-   NEXT_PUBLIC_COMPANY_EMAIL="info@daaycomtech.com"
+   NEXT_PUBLIC_COMPANY_EMAIL="email@gmail.com"
    NEXT_PUBLIC_COMPANY_ADDRESS="Jl. Example No. 123, Jakarta, Indonesia"
 
    # Contact email validation policy:
