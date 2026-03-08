@@ -15,16 +15,49 @@ async function requireAdmin() {
   return session;
 }
 
-export async function GET() {
+const parsePositiveInt = (value: string | null, fallback: number) => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.max(1, Math.trunc(parsed));
+};
+
+export async function GET(request: NextRequest) {
   const session = await requireAdmin();
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   try {
+    const searchParams = request.nextUrl.searchParams;
+    const hasPagination = searchParams.has('page') || searchParams.has('limit');
+    const page = parsePositiveInt(searchParams.get('page'), 1);
+    const limit = Math.min(100, parsePositiveInt(searchParams.get('limit'), 20));
+
+    if (hasPagination) {
+      const [messages, total] = await Promise.all([
+        prisma.message.findMany({
+          orderBy: { createdAt: 'desc' },
+          skip: (page - 1) * limit,
+          take: limit,
+        }),
+        prisma.message.count(),
+      ]);
+
+      return NextResponse.json({
+        data: messages,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.max(1, Math.ceil(total / limit)),
+        },
+      });
+    }
+
     const messages = await prisma.message.findMany({
       orderBy: { createdAt: 'desc' },
     });
+
     return NextResponse.json(messages);
   } catch (error) {
     console.error('Error fetching messages:', error);

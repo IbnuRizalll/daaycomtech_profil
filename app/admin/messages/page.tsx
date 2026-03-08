@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useAdminToast } from '@/components/providers/admin-toast-provider';
 
 interface Message {
@@ -15,12 +15,28 @@ interface Message {
     createdAt: string;
 }
 
+interface PaginationState {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+}
+
+const PAGE_SIZE = 20;
+
 export default function MessagesPage() {
     const toast = useAdminToast();
     const [messages, setMessages] = useState<Message[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [page, setPage] = useState(1);
+    const [pagination, setPagination] = useState<PaginationState>({
+        page: 1,
+        limit: PAGE_SIZE,
+        total: 0,
+        totalPages: 1,
+    });
 
     const normalizePhone = (value: string) => value.replace(/\D/g, '');
     const toWhatsAppNumber = (value: string) => {
@@ -98,21 +114,45 @@ export default function MessagesPage() {
         }
     };
 
-    useEffect(() => {
-        const fetchMessages = async () => {
-            try {
-                const response = await fetch('/api/messages');
-                const data = await response.json();
-                setMessages(data);
-            } catch (error) {
-                console.error('Error fetching messages:', error);
-            } finally {
-                setLoading(false);
+    const fetchMessages = useCallback(async (targetPage: number) => {
+        setLoading(true);
+        try {
+            const params = new URLSearchParams({
+                page: String(targetPage),
+                limit: String(PAGE_SIZE),
+            });
+            const response = await fetch(`/api/messages?${params.toString()}`, { cache: 'no-store' });
+            const data = await response.json();
+            if (!response.ok) {
+                console.error('Error fetching messages:', data);
+                return;
             }
-        };
 
-        fetchMessages();
+            const items = Array.isArray(data?.data) ? data.data : [];
+            const nextPagination: PaginationState = {
+                page: Number(data?.pagination?.page) || targetPage,
+                limit: Number(data?.pagination?.limit) || PAGE_SIZE,
+                total: Number(data?.pagination?.total) || items.length,
+                totalPages: Math.max(1, Number(data?.pagination?.totalPages) || 1),
+            };
+
+            setMessages(items);
+            setPagination(nextPagination);
+            setSelectedMessage((prev) => {
+                if (!prev) return null;
+                const matched = items.find((item: Message) => item.id === prev.id);
+                return matched || null;
+            });
+        } catch (error) {
+            console.error('Error fetching messages:', error);
+        } finally {
+            setLoading(false);
+        }
     }, []);
+
+    useEffect(() => {
+        fetchMessages(page);
+    }, [fetchMessages, page]);
 
     const handleDelete = async () => {
         if (!selectedMessage) return;
@@ -131,9 +171,12 @@ export default function MessagesPage() {
                 alert(err?.error || 'Gagal menghapus pesan.');
                 return;
             }
-
-            setMessages(messages.filter(m => m.id !== selectedMessage.id));
-            setSelectedMessage(null);
+            const nextPage = messages.length === 1 && page > 1 ? page - 1 : page;
+            if (nextPage !== page) {
+                setPage(nextPage);
+            } else {
+                await fetchMessages(nextPage);
+            }
             toast.success('Pesan berhasil dihapus.');
         } catch (error) {
             console.error('Error deleting message:', error);
@@ -156,7 +199,7 @@ export default function MessagesPage() {
                 <div className="lg:col-span-1">
                     <div className="bg-white rounded-lg shadow">
                         <div className="border-b p-4">
-                            <h2 className="font-semibold">Messages ({messages.length})</h2>
+                            <h2 className="font-semibold">Messages ({pagination.total})</h2>
                         </div>
                         <div className="max-h-64 sm:max-h-80 lg:max-h-[70vh] overflow-y-auto">
                             {messages.map((message) => (
@@ -185,6 +228,27 @@ export default function MessagesPage() {
                                     </span>
                                 </div>
                             ))}
+                        </div>
+                        <div className="border-t p-3 flex items-center justify-between text-sm">
+                            <button
+                                type="button"
+                                onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+                                disabled={page <= 1}
+                                className="px-3 py-1 rounded border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                            >
+                                Prev
+                            </button>
+                            <span>
+                                Halaman {pagination.page} / {pagination.totalPages}
+                            </span>
+                            <button
+                                type="button"
+                                onClick={() => setPage((prev) => Math.min(pagination.totalPages, prev + 1))}
+                                disabled={page >= pagination.totalPages}
+                                className="px-3 py-1 rounded border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                            >
+                                Next
+                            </button>
                         </div>
                     </div>
                 </div>

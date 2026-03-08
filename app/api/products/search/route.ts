@@ -1,6 +1,10 @@
 import { prisma } from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
 
+const publicSearchCacheHeaders = {
+  "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300",
+}
+
 const buildQuery = (value: string) => {
   const terms = value.trim().split(/\s+/).filter(Boolean).slice(0, 5)
   if (terms.length === 0) return null
@@ -26,7 +30,7 @@ export async function GET(request: NextRequest) {
   const where = buildQuery(q)
 
   if (!where) {
-    return NextResponse.json([])
+    return NextResponse.json([], { headers: publicSearchCacheHeaders })
   }
 
   try {
@@ -41,7 +45,7 @@ export async function GET(request: NextRequest) {
         category: true,
       },
     })
-    return NextResponse.json(products)
+    return NextResponse.json(products, { headers: publicSearchCacheHeaders })
   } catch (error) {
     console.error('Error searching products:', error)
     return NextResponse.json({ error: 'Failed to search products' }, { status: 500 })

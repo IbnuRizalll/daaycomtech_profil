@@ -1,42 +1,71 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 
-const RATE_LIMIT_WINDOW_MS = 60_000;
-const RATE_LIMIT_MAX = 5;
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+
+type RateLimitRule = {
+    id: string;
+    windowMs: number;
+    max: number;
+    retryAfterSeconds: number;
+    message: string;
+    appliesTo: (request: NextRequest, pathname: string) => boolean;
+};
 
 const getClientIp = (request: NextRequest) => {
     const forwarded = request.headers.get('x-forwarded-for');
     return forwarded?.split(',')[0]?.trim() || request.ip || 'unknown';
 };
 
-const isRateLimited = (key: string) => {
+const isRateLimited = (key: string, windowMs: number, max: number) => {
     const now = Date.now();
     const entry = rateLimitMap.get(key);
 
     if (!entry || entry.resetAt <= now) {
-        rateLimitMap.set(key, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+        rateLimitMap.set(key, { count: 1, resetAt: now + windowMs });
         return false;
     }
 
     entry.count += 1;
     rateLimitMap.set(key, entry);
-    return entry.count > RATE_LIMIT_MAX;
+    return entry.count > max;
 };
+
+const rateLimitRules: RateLimitRule[] = [
+    {
+        id: 'login',
+        windowMs: 60_000,
+        max: 5,
+        retryAfterSeconds: 60,
+        message: 'Terlalu banyak percobaan login. Coba lagi nanti.',
+        appliesTo: (request, pathname) =>
+            request.method === 'POST' &&
+            (pathname.startsWith('/api/auth/callback/credentials') ||
+                pathname.startsWith('/api/auth/signin/credentials')),
+    },
+    {
+        id: 'contact-message',
+        windowMs: 60_000,
+        max: 8,
+        retryAfterSeconds: 60,
+        message: 'Terlalu banyak kiriman pesan. Coba lagi sebentar.',
+        appliesTo: (request, pathname) => request.method === 'POST' && pathname === '/api/messages',
+    },
+];
 
 export async function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl;
 
-    if (
-        request.method === 'POST' &&
-        (pathname.startsWith('/api/auth/callback/credentials') ||
-            pathname.startsWith('/api/auth/signin/credentials'))
-    ) {
-        const key = `${getClientIp(request)}:${pathname}`;
-        if (isRateLimited(key)) {
+    const matchedRateLimitRule = rateLimitRules.find((rule) => rule.appliesTo(request, pathname));
+    if (matchedRateLimitRule) {
+        const key = `${matchedRateLimitRule.id}:${getClientIp(request)}:${pathname}`;
+        if (isRateLimited(key, matchedRateLimitRule.windowMs, matchedRateLimitRule.max)) {
             return NextResponse.json(
-                { error: 'Terlalu banyak percobaan login. Coba lagi nanti.' },
-                { status: 429, headers: { 'Retry-After': '60' } }
+                { error: matchedRateLimitRule.message },
+                {
+                    status: 429,
+                    headers: { 'Retry-After': String(matchedRateLimitRule.retryAfterSeconds) },
+                }
             );
         }
     }
@@ -60,5 +89,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-    matcher: ['/admin/:path*', '/api/auth/:path*'],
+    matcher: ['/admin/:path*', '/api/auth/:path*', '/api/messages'],
 };

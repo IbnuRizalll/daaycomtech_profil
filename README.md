@@ -83,6 +83,8 @@ Struktur aplikasi:
    NEXT_PUBLIC_WHATSAPP_NUMBER="628123456789"
    NEXT_PUBLIC_COMPANY_EMAIL="email@gmail.com"
    NEXT_PUBLIC_COMPANY_ADDRESS="Jl. Example No. 123, Jakarta, Indonesia"
+   # Opsional: whitelist host gambar remote tambahan (pisahkan koma)
+   NEXT_PUBLIC_ALLOWED_IMAGE_HOSTS="cdn.example.com,images.example.org"
 
    # Contact email validation policy:
    # allow (default) | google_microsoft_only

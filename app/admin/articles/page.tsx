@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useAdminToast } from '@/components/providers/admin-toast-provider';
 
 interface Article {
@@ -15,6 +15,13 @@ interface Article {
     publishedAt?: string | null;
     createdAt: string;
     updatedAt: string;
+}
+
+interface PaginationState {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
 }
 
 type ContentBlock =
@@ -32,6 +39,7 @@ const emptyForm = {
 };
 
 const categoryOptions = ['Berita', 'Artikel', 'Studi Kasus'];
+const PAGE_SIZE = 12;
 
 const toDateInput = (value?: string | null) => {
     if (!value) return '';
@@ -153,24 +161,43 @@ export default function ArticlesPage() {
     const [blockUploadingIndex, setBlockUploadingIndex] = useState<number | null>(null);
     const [formData, setFormData] = useState({ ...emptyForm });
     const [contentBlocks, setContentBlocks] = useState<ContentBlock[]>([]);
+    const [page, setPage] = useState(1);
+    const [pagination, setPagination] = useState<PaginationState>({
+        page: 1,
+        limit: PAGE_SIZE,
+        total: 0,
+        totalPages: 1,
+    });
 
-    useEffect(() => {
-        fetchArticles();
-    }, []);
-
-    const fetchArticles = async () => {
+    const fetchArticles = useCallback(async (targetPage: number) => {
+        setLoading(true);
         try {
-            const response = await fetch('/api/articles');
+            const params = new URLSearchParams({
+                page: String(targetPage),
+                limit: String(PAGE_SIZE),
+            });
+            const response = await fetch(`/api/articles?${params.toString()}`, { cache: 'no-store' });
             const data = await response.json();
             if (response.ok) {
-                setArticles(data);
+                const items = Array.isArray(data?.data) ? data.data : [];
+                setArticles(items);
+                setPagination({
+                    page: Number(data?.pagination?.page) || targetPage,
+                    limit: Number(data?.pagination?.limit) || PAGE_SIZE,
+                    total: Number(data?.pagination?.total) || items.length,
+                    totalPages: Math.max(1, Number(data?.pagination?.totalPages) || 1),
+                });
             }
         } catch (error) {
             console.error('Error fetching articles:', error);
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        fetchArticles(page);
+    }, [fetchArticles, page]);
 
     const handleOpenModal = (article?: Article) => {
         if (article) {
@@ -315,13 +342,12 @@ export default function ArticlesPage() {
                 return;
             }
 
-            if (editingId) {
-                setArticles((prev) => prev.map((item) => (item.id === editingId ? data : item)));
-                toast.success('Artikel berhasil diperbarui.');
-            } else {
-                setArticles((prev) => [data, ...prev]);
-                toast.success('Artikel berhasil ditambahkan.');
+            const nextPage = editingId ? page : 1;
+            if (!editingId && page !== 1) {
+                setPage(1);
             }
+            await fetchArticles(nextPage);
+            toast.success(editingId ? 'Artikel berhasil diperbarui.' : 'Artikel berhasil ditambahkan.');
             handleCloseModal();
         } catch (error) {
             console.error('Error saving article:', error);
@@ -334,7 +360,12 @@ export default function ArticlesPage() {
         try {
             const response = await fetch(`/api/articles/${id}`, { method: 'DELETE' });
             if (response.ok) {
-                setArticles((prev) => prev.filter((item) => item.id !== id));
+                const nextPage = articles.length === 1 && page > 1 ? page - 1 : page;
+                if (nextPage !== page) {
+                    setPage(nextPage);
+                } else {
+                    await fetchArticles(nextPage);
+                }
                 toast.success('Artikel berhasil dihapus.');
             }
         } catch (error) {
@@ -424,6 +455,33 @@ export default function ArticlesPage() {
                         )}
                     </tbody>
                 </table>
+                </div>
+            </div>
+
+            <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-sm">
+                <p className="text-gray-600">
+                    Total artikel: {pagination.total}
+                </p>
+                <div className="flex items-center gap-2">
+                    <button
+                        type="button"
+                        onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+                        disabled={page <= 1}
+                        className="px-3 py-1.5 rounded border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                    >
+                        Prev
+                    </button>
+                    <span className="text-gray-700">
+                        Halaman {pagination.page} / {pagination.totalPages}
+                    </span>
+                    <button
+                        type="button"
+                        onClick={() => setPage((prev) => Math.min(pagination.totalPages, prev + 1))}
+                        disabled={page >= pagination.totalPages}
+                        className="px-3 py-1.5 rounded border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                    >
+                        Next
+                    </button>
                 </div>
             </div>
 

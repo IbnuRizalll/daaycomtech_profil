@@ -124,6 +124,10 @@ const toBoolean = (value: unknown, fallback = false) =>
 const toStringValue = (value: unknown) =>
   typeof value === "string" ? value.trim() : ""
 
+const publicListCacheHeaders = {
+  "Cache-Control": "public, s-maxage=120, stale-while-revalidate=600",
+}
+
 async function requireAdmin() {
   const session = (await getServerSession(authOptions as any)) as any
   const role = (session?.user as any)?.role
@@ -139,6 +143,13 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get("search")?.trim() || ""
     const category = searchParams.get("category") || "all"
     const view = searchParams.get("view")
+    const hasPagination = searchParams.has("page") || searchParams.has("limit")
+    const shouldUsePublicCache = view === "card"
+    const pageRaw = toNumber(searchParams.get("page"), 1) ?? 1
+    const limitDefault = view === "card" ? 24 : 50
+    const limitRaw = toNumber(searchParams.get("limit"), limitDefault) ?? limitDefault
+    const page = Math.max(1, Math.trunc(pageRaw))
+    const limit = Math.min(100, Math.max(1, Math.trunc(limitRaw)))
 
     const where: any = {}
 
@@ -182,9 +193,31 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const products = await prisma.product.findMany(query)
+    if (hasPagination) {
+      const pagedQuery: Prisma.ProductFindManyArgs = {
+        ...query,
+        skip: (page - 1) * limit,
+        take: limit,
+      }
 
-    return NextResponse.json(products)
+      const [products, total] = await Promise.all([
+        prisma.product.findMany(pagedQuery),
+        prisma.product.count({ where }),
+      ])
+
+      return NextResponse.json({
+        data: products,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.max(1, Math.ceil(total / limit)),
+        },
+      }, shouldUsePublicCache ? { headers: publicListCacheHeaders } : undefined)
+    }
+
+    const products = await prisma.product.findMany(query)
+    return NextResponse.json(products, shouldUsePublicCache ? { headers: publicListCacheHeaders } : undefined)
   } catch (error) {
     console.error("Error fetching products:", error)
     return NextResponse.json({ error: "Failed to fetch products" }, { status: 500 })

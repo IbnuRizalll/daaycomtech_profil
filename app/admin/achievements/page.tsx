@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useAdminToast } from '@/components/providers/admin-toast-provider';
 
 interface Achievement {
@@ -16,6 +16,13 @@ interface Achievement {
     updatedAt: string;
 }
 
+interface PaginationState {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+}
+
 type ContentBlock =
     | { type: 'paragraph'; text: string }
     | { type: 'image'; url: string; caption?: string }
@@ -29,6 +36,7 @@ const emptyForm = {
     isHighlight: false,
     order: 0,
 };
+const PAGE_SIZE = 12;
 
 const emptyParagraphBlock: ContentBlock = { type: 'paragraph', text: '' };
 const emptyImageBlock: ContentBlock = { type: 'image', url: '', caption: '' };
@@ -136,24 +144,43 @@ export default function AchievementsPage() {
     const [blockUploadingIndex, setBlockUploadingIndex] = useState<number | null>(null);
     const [formData, setFormData] = useState({ ...emptyForm });
     const [contentBlocks, setContentBlocks] = useState<ContentBlock[]>([]);
+    const [page, setPage] = useState(1);
+    const [pagination, setPagination] = useState<PaginationState>({
+        page: 1,
+        limit: PAGE_SIZE,
+        total: 0,
+        totalPages: 1,
+    });
 
-    useEffect(() => {
-        fetchAchievements();
-    }, []);
-
-    const fetchAchievements = async () => {
+    const fetchAchievements = useCallback(async (targetPage: number) => {
+        setLoading(true);
         try {
-            const response = await fetch('/api/achievements');
+            const params = new URLSearchParams({
+                page: String(targetPage),
+                limit: String(PAGE_SIZE),
+            });
+            const response = await fetch(`/api/achievements?${params.toString()}`, { cache: 'no-store' });
             const data = await response.json();
             if (response.ok) {
-                setAchievements(data);
+                const items = Array.isArray(data?.data) ? data.data : [];
+                setAchievements(items);
+                setPagination({
+                    page: Number(data?.pagination?.page) || targetPage,
+                    limit: Number(data?.pagination?.limit) || PAGE_SIZE,
+                    total: Number(data?.pagination?.total) || items.length,
+                    totalPages: Math.max(1, Number(data?.pagination?.totalPages) || 1),
+                });
             }
         } catch (error) {
             console.error('Error fetching achievements:', error);
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        fetchAchievements(page);
+    }, [fetchAchievements, page]);
 
     const handleOpenModal = (achievement?: Achievement) => {
         if (achievement) {
@@ -298,13 +325,12 @@ export default function AchievementsPage() {
                 return;
             }
 
-            if (editingId) {
-                setAchievements((prev) => prev.map((item) => (item.id === editingId ? data : item)));
-                toast.success('Achievement berhasil diperbarui.');
-            } else {
-                setAchievements((prev) => [...prev, data]);
-                toast.success('Achievement berhasil ditambahkan.');
+            const nextPage = editingId ? page : 1;
+            if (!editingId && page !== 1) {
+                setPage(1);
             }
+            await fetchAchievements(nextPage);
+            toast.success(editingId ? 'Achievement berhasil diperbarui.' : 'Achievement berhasil ditambahkan.');
             handleCloseModal();
         } catch (error) {
             console.error('Error saving achievement:', error);
@@ -317,7 +343,12 @@ export default function AchievementsPage() {
         try {
             const response = await fetch(`/api/achievements/${id}`, { method: 'DELETE' });
             if (response.ok) {
-                setAchievements((prev) => prev.filter((item) => item.id !== id));
+                const nextPage = achievements.length === 1 && page > 1 ? page - 1 : page;
+                if (nextPage !== page) {
+                    setPage(nextPage);
+                } else {
+                    await fetchAchievements(nextPage);
+                }
                 toast.success('Achievement berhasil dihapus.');
             }
         } catch (error) {
@@ -407,6 +438,33 @@ export default function AchievementsPage() {
                         )}
                     </tbody>
                 </table>
+                </div>
+            </div>
+
+            <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-sm">
+                <p className="text-gray-600">
+                    Total achievement: {pagination.total}
+                </p>
+                <div className="flex items-center gap-2">
+                    <button
+                        type="button"
+                        onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+                        disabled={page <= 1}
+                        className="px-3 py-1.5 rounded border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                    >
+                        Prev
+                    </button>
+                    <span className="text-gray-700">
+                        Halaman {pagination.page} / {pagination.totalPages}
+                    </span>
+                    <button
+                        type="button"
+                        onClick={() => setPage((prev) => Math.min(pagination.totalPages, prev + 1))}
+                        disabled={page >= pagination.totalPages}
+                        className="px-3 py-1.5 rounded border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                    >
+                        Next
+                    </button>
                 </div>
             </div>
 

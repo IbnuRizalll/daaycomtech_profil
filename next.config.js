@@ -1,13 +1,26 @@
 /** @type {import('next').NextConfig} */
+const parseEnvCsv = (value = '') =>
+  value
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
+
+const imageHosts = Array.from(
+  new Set([
+    'images.unsplash.com',
+    'upload.wikimedia.org',
+    '**.public.blob.vercel-storage.com',
+    ...parseEnvCsv(process.env.NEXT_PUBLIC_ALLOWED_IMAGE_HOSTS),
+  ])
+)
+
 const nextConfig = {
   poweredByHeader: false,
   images: {
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: '**',
-      },
-    ],
+    remotePatterns: imageHosts.map((hostname) => ({
+      protocol: 'https',
+      hostname,
+    })),
   },
   async headers() {
     const isDev = process.env.NODE_ENV !== 'production'

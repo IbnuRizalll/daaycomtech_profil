@@ -18,6 +18,12 @@ const parseDate = (value?: string | null) => {
     return Number.isNaN(parsed.getTime()) ? null : parsed;
 };
 
+const parsePositiveInt = (value: string | null, fallback: number) => {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return fallback;
+    return Math.max(1, Math.trunc(parsed));
+};
+
 const normalizeContentBlocks = (value: unknown) => {
     if (!value) return [];
     const source = Array.isArray(value)
@@ -85,18 +91,46 @@ const buildSummary = (blocks: any[], fallback?: string) => {
     return raw.length > 180 ? `${raw.slice(0, 177)}...` : raw;
 };
 
-export async function GET() {
+export async function GET(request: NextRequest) {
     const session = await requireAdmin();
     if (!session) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     try {
+        const searchParams = request.nextUrl.searchParams;
+        const hasPagination = searchParams.has('page') || searchParams.has('limit');
+        const page = parsePositiveInt(searchParams.get('page'), 1);
+        const limit = Math.min(100, parsePositiveInt(searchParams.get('limit'), 12));
+
+        const orderBy: Prisma.ArticleOrderByWithRelationInput[] = [
+            { publishedAt: 'desc' },
+            { createdAt: 'desc' },
+        ];
+
+        if (hasPagination) {
+            const [articles, total] = await Promise.all([
+                prisma.article.findMany({
+                    orderBy,
+                    skip: (page - 1) * limit,
+                    take: limit,
+                }),
+                prisma.article.count(),
+            ]);
+
+            return NextResponse.json({
+                data: articles,
+                pagination: {
+                    page,
+                    limit,
+                    total,
+                    totalPages: Math.max(1, Math.ceil(total / limit)),
+                },
+            });
+        }
+
         const articles = await prisma.article.findMany({
-            orderBy: [
-                { publishedAt: 'desc' },
-                { createdAt: 'desc' },
-            ],
+            orderBy,
         });
         return NextResponse.json(articles);
     } catch (error) {
