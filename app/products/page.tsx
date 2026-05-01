@@ -68,8 +68,15 @@ async function getCategories() {
       orderBy: { category: "asc" },
     })
 
-    return categories
-      .map(c => c.category)
+    const map = new Map<string, string>()
+    for (const item of categories) {
+      const raw = String(item.category || "").trim()
+      if (!raw) continue
+      const key = raw.toLowerCase()
+      if (!map.has(key)) map.set(key, raw)
+    }
+
+    return Array.from(map.values())
       .sort((a, b) => a.localeCompare(b, "id", { sensitivity: "base" }))
   } catch (error) {
     console.error('Error fetching categories:', error)

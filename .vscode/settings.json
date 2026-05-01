@@ -15,7 +15,7 @@
   "terminal.integrated.fontFamily": "SF Mono, Menlo, Monaco, monospace",
   "terminal.integrated.fontSize": 13,
   "workbench.panel.defaultLocation": "right",
-  "workbench.colorTheme": "Default Dark Modern",
+  "workbench.colorTheme": "Dark Modern",
   "workbench.iconTheme": "material-icon-theme",
   "workbench.list.smoothScrolling": true,
   "workbench.tree.indent": 14,

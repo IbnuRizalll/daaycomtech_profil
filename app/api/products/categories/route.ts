@@ -1,9 +1,12 @@
 import { prisma } from "@/lib/prisma"
+import { unstable_noStore as noStore } from "next/cache"
 import { NextResponse } from "next/server"
 
-export const revalidate = 1800
+export const dynamic = "force-dynamic"
 
 export async function GET() {
+  noStore()
+
   try {
     const categories = await prisma.product.findMany({
       select: { category: true },
@@ -25,7 +28,7 @@ export async function GET() {
 
     return NextResponse.json(result, {
       headers: {
-        "Cache-Control": "public, s-maxage=1800, stale-while-revalidate=3600",
+        "Cache-Control": "no-store",
       },
     })
   } catch (error) {

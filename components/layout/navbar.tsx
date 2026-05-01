@@ -37,7 +37,7 @@ const fetchCategoryList = async (): Promise<string[] | null> => {
   }
 
   categoryPromise = (async () => {
-    const response = await fetch("/api/products/categories", { cache: "force-cache" })
+    const response = await fetch("/api/products/categories", { cache: "no-store" })
     if (!response.ok) {
       throw new Error("Failed to fetch product categories")
     }
