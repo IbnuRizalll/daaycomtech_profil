@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import type { Session } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { revalidatePath } from 'next/cache';
 
 async function requireAdmin() {
     const session = (await getServerSession(authOptions as any)) as Session | null;
@@ -80,6 +81,12 @@ const buildSummary = (blocks: any[], fallback?: string) => {
     return raw.length > 180 ? `${raw.slice(0, 177)}...` : raw;
 };
 
+const revalidateAchievementPages = (achievementId: string) => {
+    revalidatePath('/');
+    revalidatePath('/about');
+    revalidatePath(`/achievements/${achievementId}`);
+};
+
 export async function PATCH(request: NextRequest, context: { params: { id: string } }) {
     const session = await requireAdmin();
     if (!session) {
@@ -119,6 +126,7 @@ export async function PATCH(request: NextRequest, context: { params: { id: strin
             },
         });
 
+        revalidateAchievementPages(achievementId);
         return NextResponse.json(achievement);
     } catch (error) {
         console.error('Error updating achievement:', error);
@@ -139,6 +147,7 @@ export async function DELETE(_request: NextRequest, context: { params: { id: str
 
     try {
         await prisma.achievement.delete({ where: { id: achievementId } });
+        revalidateAchievementPages(achievementId);
         return NextResponse.json({ message: 'Achievement berhasil dihapus' });
     } catch (error) {
         console.error('Error deleting achievement:', error);

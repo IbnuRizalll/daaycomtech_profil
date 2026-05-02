@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { revalidatePath } from 'next/cache';
 
 async function requireAdmin() {
     const session = (await getServerSession(authOptions as any)) as any;
@@ -85,6 +86,12 @@ const buildSummary = (blocks: any[], fallback?: string) => {
     return raw.length > 180 ? `${raw.slice(0, 177)}...` : raw;
 };
 
+const revalidateArticlePages = (articleId: string) => {
+    revalidatePath('/');
+    revalidatePath('/about');
+    revalidatePath(`/articles/${articleId}`);
+};
+
 export async function PATCH(request: NextRequest, context: { params: { id: string } }) {
     const session = await requireAdmin();
     if (!session) {
@@ -126,6 +133,7 @@ export async function PATCH(request: NextRequest, context: { params: { id: strin
             },
         });
 
+        revalidateArticlePages(articleId);
         return NextResponse.json(article);
     } catch (error) {
         console.error('Error updating article:', error);
@@ -146,6 +154,7 @@ export async function DELETE(_request: NextRequest, context: { params: { id: str
 
     try {
         await prisma.article.delete({ where: { id: articleId } });
+        revalidateArticlePages(articleId);
         return NextResponse.json({ message: 'Artikel berhasil dihapus' });
     } catch (error) {
         console.error('Error deleting article:', error);

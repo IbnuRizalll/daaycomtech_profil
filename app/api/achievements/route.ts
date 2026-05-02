@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import type { Session } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { revalidatePath } from 'next/cache';
 
 async function requireAdmin() {
     const session = (await getServerSession(authOptions as any)) as Session | null;
@@ -84,6 +85,12 @@ const buildSummary = (blocks: any[], fallback?: string) => {
     ).trim();
     if (!raw) return '';
     return raw.length > 180 ? `${raw.slice(0, 177)}...` : raw;
+};
+
+const revalidateAchievementPages = (achievementId?: string) => {
+    revalidatePath('/');
+    revalidatePath('/about');
+    if (achievementId) revalidatePath(`/achievements/${achievementId}`);
 };
 
 export async function GET(request: NextRequest) {
@@ -167,6 +174,7 @@ export async function POST(request: NextRequest) {
             },
         });
 
+        revalidateAchievementPages(achievement.id);
         return NextResponse.json(achievement, { status: 201 });
     } catch (error) {
         console.error('Error creating achievement:', error);

@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { revalidatePath } from 'next/cache';
 
 async function requireAdmin() {
     const session = (await getServerSession(authOptions as any)) as any;
@@ -91,6 +92,12 @@ const buildSummary = (blocks: any[], fallback?: string) => {
     return raw.length > 180 ? `${raw.slice(0, 177)}...` : raw;
 };
 
+const revalidateArticlePages = (articleId?: string) => {
+    revalidatePath('/');
+    revalidatePath('/about');
+    if (articleId) revalidatePath(`/articles/${articleId}`);
+};
+
 export async function GET(request: NextRequest) {
     const session = await requireAdmin();
     if (!session) {
@@ -174,6 +181,7 @@ export async function POST(request: NextRequest) {
             },
         });
 
+        revalidateArticlePages(article.id);
         return NextResponse.json(article, { status: 201 });
     } catch (error) {
         console.error('Error creating article:', error);
