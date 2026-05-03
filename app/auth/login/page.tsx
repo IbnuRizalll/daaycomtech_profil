@@ -5,6 +5,36 @@ import { useRouter } from 'next/navigation';
 import { useState, FormEvent } from 'react';
 import { loginSchema } from '@/lib/validation';
 
+const getLoginErrorMessage = (error?: string | null, status?: number) => {
+    if (status === 429) {
+        return 'Terlalu banyak percobaan login. Coba lagi dalam beberapa saat.';
+    }
+
+    if (!error) {
+        return 'Login gagal. Email atau password salah.';
+    }
+
+    if (error === 'CredentialsSignin') {
+        return 'Email atau password salah.';
+    }
+
+    if (error.toLowerCase().includes('rate') || error.includes('429')) {
+        return 'Terlalu banyak percobaan login. Coba lagi dalam beberapa saat.';
+    }
+
+    return error;
+};
+
+const withTimeout = <T,>(promise: Promise<T>, timeoutMs: number) =>
+    Promise.race([
+        promise,
+        new Promise<T>((_, reject) => {
+            window.setTimeout(() => {
+                reject(new Error('timeout'));
+            }, timeoutMs);
+        }),
+    ]);
+
 const LoginPage = () => {
     const router = useRouter();
     const [email, setEmail] = useState('');
@@ -25,16 +55,26 @@ const LoginPage = () => {
             return;
         }
 
-        const result = await signIn('credentials', {
-            redirect: false,
-            email,
-            password,
-        });
+        try {
+            const result = await withTimeout(
+                signIn('credentials', {
+                    redirect: false,
+                    email,
+                    password,
+                }),
+                15_000
+            );
 
-        if (result?.ok) {
-            router.push('/admin');
-        } else {
-            setError(result?.error || 'Login gagal. Email atau password salah.');
+            if (result?.ok) {
+                router.push('/admin');
+                return;
+            }
+
+            setError(getLoginErrorMessage(result?.error, result?.status));
+        } catch (error) {
+            console.error('Login request failed:', error);
+            setError('Login gagal diproses. Coba lagi dalam beberapa saat.');
+        } finally {
             setLoading(false);
         }
     };

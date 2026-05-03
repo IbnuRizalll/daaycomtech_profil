@@ -60,6 +60,18 @@ export async function middleware(request: NextRequest) {
     if (matchedRateLimitRule) {
         const key = `${matchedRateLimitRule.id}:${getClientIp(request)}:${pathname}`;
         if (isRateLimited(key, matchedRateLimitRule.windowMs, matchedRateLimitRule.max)) {
+            if (matchedRateLimitRule.id === 'login') {
+                const loginUrl = new URL('/auth/login', request.url);
+                loginUrl.searchParams.set('error', 'RateLimited');
+                return NextResponse.json(
+                    { url: loginUrl.toString(), error: matchedRateLimitRule.message },
+                    {
+                        status: 429,
+                        headers: { 'Retry-After': String(matchedRateLimitRule.retryAfterSeconds) },
+                    }
+                );
+            }
+
             return NextResponse.json(
                 { error: matchedRateLimitRule.message },
                 {
